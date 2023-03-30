@@ -1,21 +1,21 @@
-import os
 import argparse
-import torch
+import os
 
-import model
 import numpy as np
+import torch
+from torchsummary import summary
 
-from model import two_d_softmax
-from model import nll_across_batch
+# noinspection PyUnresolvedReferences
+import model
 from evaluate import evaluate
-from evaluate import visualise
 from evaluate import produce_sdr_statistics
-from plots import radial_error_vs_ere_graph
-from plots import roc_outlier_graph
-from plots import reliability_diagram
 from landmark_dataset import LandmarkDataset
+from model import nll_across_batch
+from model import two_d_softmax
+from plots import radial_error_vs_ere_graph
+from plots import reliability_diagram
+from plots import roc_outlier_graph
 from utils import prepare_config_output_and_logger
-from torchsummary.torchsummary import summary_string
 
 
 def parse_args():
@@ -54,7 +54,6 @@ def parse_args():
 
 
 def main():
-
     # Get arguments and the experiment file
     args = parse_args()
 
@@ -80,8 +79,9 @@ def main():
     model.load_state_dict(loaded_state_dict, strict=True)
 
     logger.info("-----------Model Summary-----------")
-    model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE), device=torch.device('cpu'))
-    logger.info(model_summary)
+    summary(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE), device='cpu')
+    # model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE), device=torch.device('cpu'))
+    # logger.info(model_summary)
 
     logger.info("-----------Start Testing-----------")
     model.eval()
@@ -101,7 +101,7 @@ def main():
             all_losses.append(loss.item())
 
             # Get the radial/localisation error and expected radial error values for each heatmap
-            radial_errors, expected_radial_errors, mode_probabilities\
+            radial_errors, expected_radial_errors, mode_probabilities \
                 = evaluate(output.detach().numpy(),
                            meta['landmarks_per_annotator'].detach().numpy(),
                            meta['pixel_size'].detach().numpy())
@@ -187,9 +187,6 @@ def main():
                 "for 2mm, 2.5mm, 3mm and 4mm respectively is {:.3f}% {:.3f}% {:.3f}% {:.3f}%"
                 .format(len(erroneous_set_radial_errors), np.mean(erroneous_set_radial_errors),
                         *erroneous_set_sdr_statistics))
-
-
-
 
 
 if __name__ == '__main__':

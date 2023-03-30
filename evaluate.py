@@ -38,7 +38,6 @@ def evaluate(heatmap_stack, landmarks_per_annotator, pixels_sizes):
         pixel_size_for_sample = pixels_sizes[i]
 
         for j in range(no_of_key_points):
-
             # Get predicted point
             predicted_point = get_hottest_point(heatmap_stack[i, j])
             predicted_point_scaled = predicted_point * pixel_size_for_sample

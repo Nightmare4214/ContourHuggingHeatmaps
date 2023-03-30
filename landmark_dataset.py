@@ -1,17 +1,15 @@
-import os
 import glob
 import json
+import os
 
-from PIL import Image
-from tqdm import tqdm
-from skimage import io
-from skimage import img_as_ubyte
-from torch.utils.data import Dataset
-from imgaug.augmentables import Keypoint
-from imgaug.augmentables import KeypointsOnImage
-
-import numpy as np
 import imgaug.augmenters as iaa
+import numpy as np
+from PIL import Image
+from imgaug.augmentables import KeypointsOnImage
+from skimage import img_as_ubyte
+from skimage import io
+from torch.utils.data import Dataset
+from tqdm import tqdm
 
 
 class LandmarkDataset(Dataset):
@@ -35,7 +33,6 @@ class LandmarkDataset(Dataset):
 
         self.db = self.cache(image_dir, annotation_dir, cfg_dataset, subset)
 
-
     @staticmethod
     def cache(images_dir, annotation_dir, cfg_dataset, subset):
 
@@ -56,12 +53,15 @@ class LandmarkDataset(Dataset):
         seq = iaa.Sequential(preprocessing_steps)
 
         # We save the cached images in the config CACHE_DIR/ImageWidth_ImageHeight
-        cache_data_dir = os.path.join(cfg_dataset.CACHE_DIR, "{}_{}".format(downsampled_image_width, downsampled_image_height))
-        if not os.path.exists(cache_data_dir):
-            os.makedirs(cache_data_dir)
+        cache_data_dir = os.path.join(cfg_dataset.CACHE_DIR,
+                                      "{}_{}".format(downsampled_image_width, downsampled_image_height))
+        os.makedirs(cache_data_dir, exist_ok=True)
+        # if not os.path.exists(cache_data_dir):
+        #     os.makedirs(cache_data_dir)
 
         # get the file names of all images in the directory
-        image_paths = sorted(glob.glob(images_dir + "/*" + cfg_dataset.IMAGE_EXT))
+        # image_paths = sorted(glob.glob(images_dir + "/*" + cfg_dataset.IMAGE_EXT))
+        image_paths = sorted(glob.glob(os.path.join(images_dir, "*" + cfg_dataset.IMAGE_EXT)))
 
         no_of_image_paths = len(image_paths)
         if subset == "first half":
@@ -72,10 +72,13 @@ class LandmarkDataset(Dataset):
         for image_path in tqdm(image_paths):
 
             # Get the file name with no extension
-            file_name = os.path.basename(image_path).split(".")[0]
+            # file_name = os.path.basename(image_path).split(".")[0]
+            file_name = os.path.splitext(os.path.basename(image_path))[0]
 
             # Get sub-directories for annotations
-            annotation_sub_dirs = sorted(glob.glob(annotation_dir + "/*"))
+            # annotation_sub_dirs = sorted(glob.glob(annotation_dir + "/*"))
+            annotation_sub_dirs = sorted(glob.glob(os.path.join(annotation_dir, '*')))
+
 
             # Keep track of where we will be saving the downsampled image and the meta data
             cache_image_path = os.path.join(cache_data_dir, file_name + ".png")
@@ -85,7 +88,8 @@ class LandmarkDataset(Dataset):
             annotation_paths = []
             for annotation_sub_dir in annotation_sub_dirs:
                 annotation_paths.append(os.path.join(annotation_sub_dir, file_name + ".txt"))
-                sub_dir_name = annotation_sub_dir.split("/")[-1]
+                # sub_dir_name = annotation_sub_dir.split("/")[-1]
+                sub_dir_name = os.path.basename(annotation_sub_dir)
                 cache_annotation_paths.append(os.path.join(cache_data_dir, file_name + "_" + sub_dir_name + ".txt"))
 
             db.append({
@@ -116,7 +120,6 @@ class LandmarkDataset(Dataset):
 
                 # Use pandas to extract the key points from the txt file
                 for annotation_path, cache_annotation_path in zip(annotation_paths, cache_annotation_paths):
-
                     # Get annotations
                     kps_np_array = np.loadtxt(annotation_path, delimiter=",", max_rows=cfg_dataset.KEY_POINTS)
 
@@ -169,7 +172,6 @@ class LandmarkDataset(Dataset):
             landmarks_per_annotator.append(kps_np_array)
 
         if self.perform_augmentation:
-
             # Augment image and annotations at the same to ensure the augmentation is the same
             kps = KeypointsOnImage.from_xy_array(np.concatenate(landmarks_per_annotator), shape=image.shape)
             image, kps_augmented = self.augmentation(image=image, keypoints=kps)

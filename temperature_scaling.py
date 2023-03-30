@@ -1,17 +1,24 @@
 import argparse
-import torch
 import math
 
-import model
 import numpy as np
+import torch
+from torchsummary import summary
 
-from model import two_d_softmax
-from model import nll_across_batch
+# noinspection PyUnresolvedReferences
+import model
 from evaluate import evaluate
-from plots import reliability_diagram
 from landmark_dataset import LandmarkDataset
-from utils import prepare_config_output_and_logger
-from torchsummary.torchsummary import summary_string
+from model import nll_across_batch
+from model import two_d_softmax
+from plots import reliability_diagram
+from utils import prepare_config_output_and_logger, setup_seed, seed_worker
+
+torch.set_num_threads(1)
+
+g = torch.Generator()
+g.manual_seed(0)
+setup_seed(42)
 
 
 def parse_args():
@@ -45,7 +52,6 @@ def parse_args():
 
 
 def main():
-
     # Get arguments and the experiment file
     args = parse_args()
 
@@ -66,8 +72,14 @@ def main():
                                        perform_augmentation=True, subset="first half")
     validation_dataset = LandmarkDataset(args.fine_tuning_images, args.annotations, cfg.DATASET,
                                          perform_augmentation=False, subset="second half")
-    training_loader = torch.utils.data.DataLoader(training_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, shuffle=True)
-    validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1)
+    training_loader = torch.utils.data.DataLoader(training_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, shuffle=True,
+                                                  pin_memory=False,
+                                                  # worker_init_fn=seed_worker, generator=g
+                                                  )
+    validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1,
+                                                    pin_memory=False,
+                                                    # worker_init_fn=seed_worker, generator=g
+                                                    )
 
     # Load model and state dict from file
     model = eval("model." + cfg.MODEL.NAME)(cfg.MODEL, cfg.DATASET.KEY_POINTS).cuda()
@@ -75,8 +87,9 @@ def main():
     model.load_state_dict(loaded_state_dict, strict=True)
 
     logger.info("-----------Model Summary-----------")
-    model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
-    logger.info(model_summary)
+    summary(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
+    # model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
+    # logger.info(model_summary)
 
     model.temperatures.requires_grad = True
     optimizer = torch.optim.Adam([model.temperatures], lr=0.01)
@@ -121,7 +134,6 @@ def main():
 
         with torch.no_grad():
             for idx, (image, channels, meta) in enumerate(validation_loader):
-
                 image = image.cuda()
                 channels = channels.cuda()
 

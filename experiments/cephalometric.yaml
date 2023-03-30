@@ -1,5 +1,5 @@
 DATASET:
-  CACHE_DIR: "cache/cephalometric/"
+  CACHE_DIR: "/mnt/data/datasets/ISBI2015_ceph/cache"
   IMAGE_EXT: ".bmp"
   KEY_POINTS: 19
   PIXEL_SIZE:

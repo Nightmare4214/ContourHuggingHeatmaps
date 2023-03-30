@@ -1,21 +1,25 @@
 import argparse
-import torch
 
-import model
 import numpy as np
-import matplotlib.pyplot as plt
+import torch
+from torchsummary import summary
 
-from model import two_d_softmax
-from model import nll_across_batch
+# noinspection PyUnresolvedReferences
+import model
 from landmark_dataset import LandmarkDataset
-from utils import prepare_config_output_and_logger
-from torchsummary.torchsummary import summary_string
-
+from model import nll_across_batch
+from model import two_d_softmax
+from utils import prepare_config_output_and_logger, setup_seed, seed_worker
 
 '''
 Code design based on Bin Xiao's Deep High Resolution Network Repository:
 https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
 '''
+torch.set_num_threads(1)
+
+g = torch.Generator()
+g.manual_seed(0)
+setup_seed(42)
 
 
 def parse_args():
@@ -61,7 +65,10 @@ def main():
 
     # load the train dataset and put it into a loader
     training_dataset = LandmarkDataset(args.training_images, args.annotations, cfg.DATASET, perform_augmentation=True)
-    training_loader = torch.utils.data.DataLoader(training_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, shuffle=True)
+    training_loader = torch.utils.data.DataLoader(training_dataset, batch_size=cfg.TRAIN.BATCH_SIZE, shuffle=True,
+                                                  pin_memory=False,
+                                                  # worker_init_fn=seed_worker, generator=g
+                                                  )
 
     '''
     for batch, (image, channels, meta) in enumerate(train_loader):
@@ -80,8 +87,9 @@ def main():
     model = eval("model." + cfg.MODEL.NAME)(cfg.MODEL, cfg.DATASET.KEY_POINTS).cuda()
 
     logger.info("-----------Model Summary-----------")
-    model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
-    logger.info(model_summary)
+    summary(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
+    # model_summary, _ = summary_string(model, (1, *cfg.DATASET.CACHED_IMAGE_SIZE))
+    # logger.info(model_summary)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.TRAIN.LR)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[4, 6, 8], gamma=0.1)
