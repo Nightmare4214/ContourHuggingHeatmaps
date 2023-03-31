@@ -190,9 +190,8 @@ class LandmarkDataset(Dataset):
         image = np.expand_dims(image, axis=0)
 
         # Get meta
-        meta_file = open(cached_meta_path, "r")
-
-        meta = json.load(meta_file)
-        meta["landmarks_per_annotator"] = landmarks_per_annotator.copy()
-        meta["pixel_size"] = np.array(self.cfg_dataset.PIXEL_SIZE) * meta["scale_factor"]
+        with open(cached_meta_path, "r") as meta_file:
+            meta = json.load(meta_file)
+            meta["landmarks_per_annotator"] = landmarks_per_annotator.copy()
+            meta["pixel_size"] = np.array(self.cfg_dataset.PIXEL_SIZE) * meta["scale_factor"]
         return image, channels, meta
